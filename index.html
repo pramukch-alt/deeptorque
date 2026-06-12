@@ -2,6 +2,33 @@
 <html lang="en" data-theme="dark">
 <head>
   <meta charset="UTF-8">
+  <script>
+    window.onerror = function(message, source, lineno, colno, error) {
+      var div = document.getElementById('js-error-banner');
+      if (!div) {
+        div = document.createElement('div');
+        div.id = 'js-error-banner';
+        div.style.position = 'fixed';
+        div.style.top = '0';
+        div.style.left = '0';
+        div.style.width = '100%';
+        div.style.background = '#FF2344';
+        div.style.color = '#FFFFFF';
+        div.style.padding = '12px';
+        div.style.zIndex = '999999';
+        div.style.fontFamily = 'monospace';
+        div.style.fontSize = '12px';
+        div.style.lineHeight = '1.5';
+        div.style.boxShadow = '0 2px 10px rgba(0,0,0,0.5)';
+        document.body.insertBefore(div, document.body.firstChild);
+      }
+      div.innerHTML = '<strong>❌ JavaScript Runtime Error:</strong><br>' + 
+                      message + '<br><br>' +
+                      '<strong>Line:</strong> ' + lineno + ':' + colno + '<br>' +
+                      '<strong>Source:</strong> ' + source;
+      return false;
+    };
+  </script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <meta name="theme-color" content="#FF7A00">
   <meta name="apple-mobile-web-app-capable" content="yes">
