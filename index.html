@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#FF7A00">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="description" content="Progressive Web Application for solar farm construction torque inspections. Works offline.">
+  <title>Deep Torque - Inspection System</title>
+  
+  <!-- Manifest & Favicon -->
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+  
+  <!-- CSS Stylesheet -->
+  <link rel="stylesheet" href="index.css">
+</head>
+<body>
+
+  <!-- App Header -->
+  <header>
+    <div class="header-logo">
+      <div class="logo-icon">DT</div>
+      <h1>DEEP TORQUE</h1>
+    </div>
+    
+    <div class="header-controls">
+      <!-- Network Connection status -->
+      <div class="status-badge" id="connection-status-badge">
+        <div class="status-dot" id="connection-status-dot"></div>
+        <span id="connection-status-label">Online</span>
+      </div>
+      
+      <!-- Theme Switcher -->
+      <button class="theme-toggle" id="theme-toggle-btn" aria-label="Toggle Theme" onclick="document.documentElement.setAttribute('data-theme', document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light')">
+        🌓
+      </button>
+    </div>
+  </header>
+
+  <!-- Main App Layout Container -->
+  <main class="app-container">
+
+    <!-- Sticky Tab Navigation bar -->
+    <nav class="nav-tabs" aria-label="Main Navigation">
+      <button class="tab-btn active" data-tab="inspect" aria-selected="true">
+        🛠️ Inspect
+      </button>
+      <button class="tab-btn" data-tab="records" aria-selected="false">
+        📋 Logs
+      </button>
+      <button class="tab-btn" data-tab="settings" aria-selected="false">
+        ⚙️ Settings
+      </button>
+    </nav>
+
+    <!-- SECTION 1: ACTIVE INSPECTION WORKFLOW -->
+    <section id="inspect-section" style="display: flex; flex-direction: column; gap: 16px;">
+      
+      <!-- BLE Warning Banner -->
+      <div id="ble-warning-banner" class="warning-banner" style="display: none;">
+        <span>⚠️ BLE Torque Wrench disconnected.</span>
+        <button id="btn-reconnect-ble-banner" class="btn btn-secondary" style="padding: 4px 8px; font-size: 0.75rem; width: auto; font-family: inherit; font-weight: 600; margin-left: auto;">Reconnect</button>
+      </div>
+      
+      <!-- Card: Project Info Selector -->
+      <div class="card">
+        <div class="card-title">
+          <span>Project Selection</span>
+        </div>
+        
+        <div class="form-row">
+          <div class="form-group" style="flex: 1;">
+            <label for="project-select">Project</label>
+            <select id="project-select">
+              <option value="Demo">Demo Version</option>
+              <option value="SO-SKT10">SO-SKT10</option>
+            </select>
+          </div>
+          
+          <div class="form-group" style="flex: 1;">
+            <label for="station-select">Transformer Station</label>
+            <select id="station-select">
+              <option value="">Loading stations...</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group search-container" style="flex: 1;">
+            <label for="table-search">Table Number</label>
+            <input type="search" id="table-search" placeholder="Select station first" disabled autocomplete="off">
+            <!-- Custom Searchable Dropdown menu -->
+            <div class="dropdown-menu" id="table-dropdown-menu"></div>
+          </div>
+          
+          <div class="form-group" style="flex: 0; align-self: flex-end;">
+            <button class="btn-icon" id="btn-qr-scan" title="Scan Table QR Code">
+              📷
+            </button>
+          </div>
+        </div>
+
+        <!-- Segmented Button Group for Wrench Size Selection -->
+        <div class="form-group" style="margin-top: 10px;">
+          <label>Wrench Size (Active Wrench)</label>
+          <div class="wrench-btn-group" id="wrench-size-selector" role="radiogroup" aria-label="Wrench Size Select">
+            <button type="button" class="wrench-btn active" data-size="M12">M12</button>
+            <button type="button" class="wrench-btn" data-size="M14">M14</button>
+            <button type="button" class="wrench-btn" data-size="M10">M10</button>
+            <button type="button" class="wrench-btn" data-size="M8">M8</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card: Current Bolt Spec Display -->
+      <div class="card">
+        <div class="card-title">
+          <span>Target Bolt Specification</span>
+        </div>
+        
+        <div class="info-grid">
+          <div class="info-box wide">
+            <span class="info-label">Bolt Position</span>
+            <span class="info-value" id="spec-position">---</span>
+          </div>
+          
+          <div class="info-box">
+            <span class="info-label">Bolt Size</span>
+            <span class="info-value" id="spec-size">---</span>
+          </div>
+          
+          <div class="info-box">
+            <span class="info-label">Target Torque</span>
+            <span class="info-value highlight" id="spec-target">---</span>
+          </div>
+          
+          <div class="info-box">
+            <span class="info-label">Tolerance (%)</span>
+            <span class="info-value" id="spec-tolerance">---</span>
+          </div>
+          
+          <div class="info-box">
+            <span class="info-label">Min Acceptable</span>
+            <span class="info-value" id="spec-min">---</span>
+          </div>
+          
+          <div class="info-box">
+            <span class="info-label">Max Acceptable</span>
+            <span class="info-value" id="spec-max">---</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card: Measured Input & Badge Result -->
+      <div class="card">
+        <div class="card-title">
+          <span>Inspection Measurement</span>
+        </div>
+        
+        <div class="measurement-box">
+          
+          <!-- Bluetooth device status line -->
+          <div class="bluetooth-line">
+            <span>Bluetooth wrench status:</span>
+            <div class="bt-status" id="bt-status-div">
+              <div class="bt-dot"></div>
+              <span id="bt-status-label">Disconnected</span>
+            </div>
+          </div>
+
+          <div class="measured-input-group">
+            <div class="input-wrapper" style="flex: 1;">
+              <input type="number" id="measured-torque" placeholder="Enter torque" step="0.1" min="0" disabled>
+              <span class="unit-label">Nm</span>
+            </div>
+            
+            <button class="btn-icon" id="btn-read-torque" title="Read values from Bluetooth Torque Wrench" style="color: var(--blue);">
+              🔌
+            </button>
+          </div>
+
+          <!-- Dynamic PASS/FAIL Badge -->
+          <div class="result-badge" id="result-badge">
+            WAITING
+          </div>
+
+          <!-- Action buttons row -->
+          <div class="action-grid">
+            <button class="btn btn-primary" id="btn-submit-result" disabled>
+              💾 Submit & Save
+            </button>
+            
+            <button class="btn btn-secondary" id="btn-next-bolt" disabled title="Skip current bolt position">
+              Skip ➔
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card: Progress Tracking Section -->
+      <div class="card">
+        <div class="card-title">
+          <span>Inspection Progress</span>
+        </div>
+        
+        <div class="progress-panel progress-box-dual">
+          <!-- Wrench Specific Progress -->
+          <div>
+            <div class="progress-sublabel">Wrench Progress (<span id="wrench-active-label">M12</span>)</div>
+            <div class="progress-stats">
+              <span>Completed: <strong id="wrench-completed">0</strong></span>
+              <span>Remaining: <strong id="wrench-remaining">0</strong></span>
+              <span>Total: <strong id="wrench-total">0</strong></span>
+            </div>
+            <div class="progress-track" style="margin-top: 4px;" aria-label="Active Wrench Progress">
+              <div class="progress-fill" id="wrench-progress-fill"></div>
+            </div>
+          </div>
+          
+          <!-- Overall Table Progress -->
+          <div style="border-top: 1px solid var(--border); padding-top: 10px;">
+            <div class="progress-sublabel">Table Progress (All Sizes)</div>
+            <div class="progress-stats">
+              <span>Completed: <strong id="progress-completed">0</strong></span>
+              <span>Remaining: <strong id="progress-remaining">0</strong></span>
+              <span>Total: <strong id="progress-total">0</strong></span>
+            </div>
+            <div class="progress-track" style="margin-top: 4px;" aria-label="Overall Table Progress">
+              <div class="progress-fill" id="progress-fill" style="background: linear-gradient(90deg, var(--blue), #4AD0FF);"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- SECTION 2: RECENT RECORDS / QUALITY CONTROL LOGS -->
+    <section id="records-section" style="display: none;">
+      <div class="card">
+        <div class="card-title">
+          <span>Inspection Logs (Last 10 Records)</span>
+        </div>
+        <div class="records-container" id="recent-records-list">
+          <div class="no-records">Loading local records...</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 3: SYSTEM SETTINGS AND SIMULATORS -->
+    <section id="settings-section" style="display: none; flex-direction: column; gap: 16px;">
+      
+      <!-- Card: Inspector Identity Profile -->
+      <div class="card">
+        <div class="card-title">
+          <span>Inspector Identity</span>
+        </div>
+        <div class="form-group">
+          <label for="inspector-name-input">Current Inspector</label>
+          <select id="inspector-name-input">
+            <option value="นายประมุข ชุ่มจันทร์">นายประมุข ชุ่มจันทร์ (595363)</option>
+            <option value="นายวรพล กัณณีย์">นายวรพล กัณณีย์ (575860)</option>
+            <option value="นายชาคริต เย็นที่">นายชาคริต เย็นที่ (592291)</option>
+            <option value="Guest Inspector">Guest Inspector</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Card: BLE Smart Torque Wrench -->
+      <div class="card">
+        <div class="card-title">
+          <span>Smart Torque BLE Wrench</span>
+        </div>
+        
+        <div class="bluetooth-line" style="margin-bottom: 12px;">
+          <span>Connection Status:</span>
+          <div class="bt-status" id="ble-panel-status-div">
+            <div class="bt-dot"></div>
+            <span id="ble-panel-status-label">Disconnected</span>
+          </div>
+        </div>
+
+        <div id="ble-device-name-row" style="margin-bottom: 12px; font-size: 0.8rem; display: none;">
+          Connected Device: <strong id="ble-connected-device-name">Smart_To</strong>
+        </div>
+
+        <div id="ble-last-received-row" style="margin-bottom: 12px; font-size: 0.8rem; color: var(--text-muted);">
+          <div>Last BLE Data: <strong id="ble-last-raw-msg" style="color: var(--text-main);">N/A</strong></div>
+          <div style="font-size: 0.7rem; margin-top: 2px;">Received: <span id="ble-last-timestamp">N/A</span></div>
+        </div>
+
+        <div class="form-row">
+          <button class="btn btn-primary" id="btn-connect-ble" style="flex: 1;">
+            🔌 Connect Smart Torque
+          </button>
+          <button class="btn btn-secondary" id="btn-disconnect-ble" style="flex: 1; display: none;">
+            Disconnect
+          </button>
+        </div>
+      </div>
+
+      <!-- Collapsible Card: BLE Debug -->
+      <div class="card">
+        <div class="collapsible-header" id="ble-debug-toggle">
+          <span>🔍 BLE Debug Log</span>
+          <span id="ble-debug-arrow">▼</span>
+        </div>
+        
+        <div class="collapsible-content" id="ble-debug-content">
+          <div class="debug-grid">
+            <div class="debug-line">
+              <span class="debug-label">Device Name:</span>
+              <span class="debug-value" id="debug-device-name">None</span>
+            </div>
+            <div class="debug-line">
+              <span class="debug-label">Service UUID:</span>
+              <span class="debug-value">4fafc201-1fb5-459e-8fcc-c5c9c331914b</span>
+            </div>
+            <div class="debug-line">
+              <span class="debug-label">Char UUID:</span>
+              <span class="debug-value">beb5483e-36e1-4688-b7f5-ea07361b26a8</span>
+            </div>
+            <div class="debug-line">
+              <span class="debug-label">GATT State:</span>
+              <span class="debug-value" id="debug-gatt-state">disconnected</span>
+            </div>
+            <div class="debug-line">
+              <span class="debug-label">Last Raw Msg:</span>
+              <span class="debug-value" id="debug-raw-msg">None</span>
+            </div>
+            <div class="debug-line">
+              <span class="debug-label">Parsed Torque:</span>
+              <span class="debug-value" id="debug-parsed-torque">None</span>
+            </div>
+          </div>
+          
+          <!-- Mock notification button for local manual testing of BLE receiver -->
+          <div style="margin-top: 10px;">
+            <button class="btn btn-secondary" id="btn-simulate-ble-notify" style="font-size: 0.8rem; padding: 6px; width: 100%;">
+              ⚡ Simulate Incoming BLE Notification
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card: Simulated Wrench Controller -->
+      <div class="card">
+        <div class="card-title">
+          <span>Bluetooth Wrench Simulator</span>
+        </div>
+        <div style="margin-bottom: 12px; font-size: 0.8rem; color: var(--text-muted);">
+          Toggle mock hardware connection to trigger simulated wrench values on "Read Torque" (🔌) click.
+        </div>
+        <button class="btn btn-secondary" id="bt-wrench-toggle">
+          Connect Simulator Wrench
+        </button>
+      </div>
+
+      <!-- Card: Report Exporters -->
+      <div class="card">
+        <div class="card-title">
+          <span>Data Export & Sync</span>
+        </div>
+        <div style="margin-bottom: 12px; font-size: 0.8rem; color: var(--text-muted);">
+          Generate offline quality reports. Data will be saved locally on your device storage.
+        </div>
+        <div class="export-grid">
+          <button class="btn btn-primary" id="btn-export-csv">
+            📊 Export CSV
+          </button>
+          <button class="btn btn-success" id="btn-export-excel">
+            📈 Export Excel
+          </button>
+        </div>
+      </div>
+
+      <!-- Card: Database Maintenance tools -->
+      <div class="card">
+        <div class="card-title" style="color: var(--red);">
+          <span>Database Management</span>
+        </div>
+        <button class="btn btn-secondary" id="btn-clear-db" style="color: var(--red); border-color: rgba(255,23,68,0.3);">
+          🗑️ Clear Local Records
+        </button>
+      </div>
+
+      <!-- Footer Branding Info -->
+      <footer style="text-align: center; padding: 12px; font-size: 0.75rem; color: var(--text-muted);">
+        <div>Deep Torque Project - EGAT อหก. Innovation</div>
+        <div>Version 1.0.0 (Offline Enabled)</div>
+      </footer>
+
+    </section>
+
+  </main>
+
+  <!-- MODAL 1: BLUETOOTH TORQUE WRENCH SIMULATOR CONTROLLERS -->
+  <div class="modal-overlay" id="wrench-simulator-modal" role="dialog" aria-modal="true" aria-labelledby="sim-modal-title">
+    <div class="modal-card">
+      <div class="modal-header">
+        <span class="modal-title" id="sim-modal-title">🔧 Torque Wrench Simulator</span>
+        <button class="modal-close" id="sim-cancel-torque" aria-label="Close modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size: 0.8rem; color: var(--text-muted); text-align: center;">
+          Slide to select the torque value registered by the wrench, then send to device.
+        </p>
+        
+        <div class="simulator-knob-container">
+          <div class="slider-value-display" id="sim-torque-value">--- Nm</div>
+          <input type="range" class="slider-range" id="sim-torque-range" min="10" max="120" value="50">
+        </div>
+        
+        <div class="form-row">
+          <button class="btn btn-primary" id="sim-submit-torque" style="flex: 2;">
+            ⚡ Send Value
+          </button>
+          <button class="btn btn-secondary" onclick="closeSimulatorModal()" style="flex: 1;">
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL 2: QR CODE SCANNER SIMULATOR CAMERA VIEWPORT -->
+  <div class="modal-overlay" id="qr-scanner-modal" role="dialog" aria-modal="true" aria-labelledby="qr-modal-title">
+    <div class="modal-card">
+      <div class="modal-header">
+        <span class="modal-title" id="qr-modal-title">📷 QR Code Table Scanner</span>
+        <button class="modal-close" id="qr-scanner-close" aria-label="Close modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="scanner-viewport" id="scanner-viewport">
+          <div class="scanner-laser"></div>
+          <div class="scanner-overlay-box"></div>
+        </div>
+        
+        <div class="form-group" style="margin-top: 12px;">
+          <label for="qr-simulated-scan-select">Simulate QR Scan (Offline Fallback)</label>
+          <select id="qr-simulated-scan-select">
+            <option value="">-- Choose Mock QR Code --</option>
+          </select>
+        </div>
+        
+        <button class="btn btn-secondary" onclick="closeQRScanner()">
+          Close Camera
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main JavaScript File -->
+  <script src="app.js"></script>
+
+</body>
+</html>
