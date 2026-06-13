@@ -1124,8 +1124,17 @@ function handleQRScanResult(tableId) {
 }
 
 // -------------------------------------------------------------
-// 5. EXPORT LOGIC (CSV and Excel formats)
+// 5. EXPORT LOGIC (CSV and Excel formats with WKWebView/Mobile support)
 // -------------------------------------------------------------
+let pendingExportData = {
+  content: '',
+  tsvContent: '',
+  fileName: '',
+  contentType: '',
+  recordsCount: 0,
+  format: ''
+};
+
 async function exportToCSV() {
   const records = await getAllFromStore('records');
   if (records.length === 0) {
@@ -1146,7 +1155,16 @@ async function exportToCSV() {
     csvContent += `${r.RecordID},${r.Timestamp},${dateStr},${timeStr},${inspector},${r.ProjectID},${r.StationID},${r.TableID},${r.TableNumber},${r.WrenchSize},${position},${r.BoltSize},${r.TargetTorque},${r.MeasuredTorque},${r.Result}\n`;
   });
 
-  downloadFile(csvContent, 'torque_inspection_records.csv', 'text/csv;charset=utf-8;');
+  pendingExportData = {
+    content: csvContent,
+    tsvContent: csvContent,
+    fileName: 'torque_inspection_records.csv',
+    contentType: 'text/csv;charset=utf-8;',
+    recordsCount: records.length,
+    format: 'CSV'
+  };
+
+  showExportModal();
 }
 
 async function exportToExcel() {
@@ -1223,20 +1241,160 @@ async function exportToExcel() {
     </html>
   `;
 
-  downloadFile(excelHTML, 'torque_inspection_report.xls', 'application/vnd.ms-excel');
+  // Generate clean tab-separated values for Excel clipboard paste
+  let tsvContent = 'ID\tDate\tTime\tInspector\tProject ID\tStation ID\tTable Number\tWrench Size\tBolt Position\tBolt Size\tTarget Torque (Nm)\tMeasured Torque (Nm)\tResult\n';
+  records.forEach(r => {
+    const d = new Date(r.Timestamp);
+    const dateStr = d.toLocaleDateString();
+    const timeStr = d.toLocaleTimeString();
+    const clean = (val) => String(val).replace(/\t/g, ' ').replace(/\n/g, ' ');
+    tsvContent += `${r.RecordID}\t${dateStr}\t${timeStr}\t${clean(r.Inspector)}\t${r.ProjectID}\t${r.StationID}\t${r.TableNumber}\t${r.WrenchSize}\t${clean(r.BoltPosition)}\t${r.BoltSize}\t${r.TargetTorque}\t${r.MeasuredTorque}\t${r.Result}\n`;
+  });
+
+  pendingExportData = {
+    content: excelHTML,
+    tsvContent: tsvContent,
+    fileName: 'torque_inspection_report.xls',
+    contentType: 'application/vnd.ms-excel',
+    recordsCount: records.length,
+    format: 'Excel'
+  };
+
+  showExportModal();
 }
 
-function downloadFile(content, fileName, contentType) {
-  const blob = new Blob([content], { type: contentType });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = fileName;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+function showExportModal() {
+  const modal = document.getElementById('export-options-modal');
+  if (!modal) return;
+  
+  // Set format badge
+  const badge = document.getElementById('export-format-badge');
+  if (badge) {
+    badge.textContent = `${pendingExportData.format} FORMAT`;
+    if (pendingExportData.format === 'Excel') {
+      badge.style.backgroundColor = 'rgba(0, 230, 118, 0.15)';
+      badge.style.color = '#00E676';
+    } else {
+      badge.style.backgroundColor = 'var(--orange-light)';
+      badge.style.color = 'var(--orange)';
+    }
+  }
+  
+  // Set records count
+  const countText = document.getElementById('export-records-count');
+  if (countText) {
+    countText.textContent = `Total: ${pendingExportData.recordsCount} records found`;
+  }
+  
+  // Toggle share button based on support
+  const shareBtn = document.getElementById('btn-export-share');
+  if (shareBtn) {
+    if (!navigator.share) {
+      shareBtn.style.display = 'none';
+    } else {
+      shareBtn.style.display = 'flex';
+    }
+  }
+
+  modal.classList.add('show');
 }
+
+function closeExportModal() {
+  const modal = document.getElementById('export-options-modal');
+  if (modal) modal.classList.remove('show');
+}
+
+// Click handlers for the export modal actions (run completely synchronously to keep user gesture)
+function handleModalShare() {
+  const content = pendingExportData.content;
+  const fileName = pendingExportData.fileName;
+  const contentType = pendingExportData.contentType;
+  const blob = new Blob([content], { type: contentType });
+
+  if (navigator.share) {
+    try {
+      const file = new File([blob], fileName, { type: contentType });
+      navigator.share({
+        files: [file],
+        title: fileName,
+        text: 'Deep Torque Inspection Report'
+      }).then(() => {
+        console.log('Shared successfully');
+      }).catch(err => {
+        console.warn('Share rejected or failed:', err);
+        if (err.name !== 'AbortError') {
+          alert('Sharing failed. Please try "Download" or "Copy to Clipboard".');
+        }
+      });
+    } catch (err) {
+      console.error('Failed to create file or share:', err);
+      alert('Sharing is not fully supported in this browser. Please try "Copy to Clipboard".');
+    }
+  } else {
+    alert('Web Share is not supported in this browser.');
+  }
+}
+
+function handleModalDownload() {
+  const content = pendingExportData.content;
+  const fileName = pendingExportData.fileName;
+  const contentType = pendingExportData.contentType;
+  const blob = new Blob([content], { type: contentType });
+
+  try {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    console.log('Download triggered successfully');
+  } catch (err) {
+    console.error('Download failed:', err);
+    alert('Direct downloads are blocked in this WebView. Please try "Share File" or "Copy to Clipboard".');
+  }
+}
+
+function handleModalCopy() {
+  const textToCopy = pendingExportData.tsvContent || pendingExportData.content;
+
+  const doExecCopy = () => {
+    const textarea = document.createElement('textarea');
+    textarea.value = textToCopy;
+    textarea.style.position = 'fixed'; // prevent scrolling
+    document.body.appendChild(textarea);
+    textarea.select();
+    try {
+      document.execCommand('copy');
+      alert('Report data copied to clipboard! You can paste it directly into Excel.');
+    } catch (err) {
+      console.error('execCommand copy failed:', err);
+      alert('Failed to copy. Please manually select and copy.');
+    } finally {
+      document.body.removeChild(textarea);
+      closeExportModal();
+    }
+  };
+
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(textToCopy).then(() => {
+        alert('Report data copied to clipboard! You can paste it directly into Excel.');
+        closeExportModal();
+      }).catch(err => {
+        console.warn('navigator.clipboard failed, using fallback:', err);
+        doExecCopy();
+      });
+    } else {
+      doExecCopy();
+    }
+  } catch (err) {
+    doExecCopy();
+  }
+}
+
 
 // -------------------------------------------------------------
 // 6. INITIALIZATION & TAB ROUTING
@@ -1388,6 +1546,12 @@ function setupEventListeners() {
   // Export Buttons
   document.getElementById('btn-export-csv').addEventListener('click', exportToCSV);
   document.getElementById('btn-export-excel').addEventListener('click', exportToExcel);
+
+  // Export Modal Triggers
+  document.getElementById('export-modal-close').addEventListener('click', closeExportModal);
+  document.getElementById('btn-export-share').addEventListener('click', handleModalShare);
+  document.getElementById('btn-export-download').addEventListener('click', handleModalDownload);
+  document.getElementById('btn-export-copy').addEventListener('click', handleModalCopy);
 
   // Network Monitoring
   window.addEventListener('online', updateOnlineStatus);

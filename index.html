@@ -478,6 +478,43 @@
     </div>
   </div>
 
+  <!-- MODAL 3: EXPORT OPTION SELECTOR (WKWebView/Mobile optimized) -->
+  <div class="modal-overlay" id="export-options-modal" role="dialog" aria-modal="true" aria-labelledby="export-modal-title">
+    <div class="modal-card" style="max-width: 420px;">
+      <div class="modal-header">
+        <span class="modal-title" id="export-modal-title">📊 Export Inspection Report</span>
+        <button class="modal-close" id="export-modal-close" aria-label="Close modal">&times;</button>
+      </div>
+      <div class="modal-body" style="gap: 16px; padding: 20px;">
+        <div style="text-align: center; margin-bottom: 8px;">
+          <div id="export-format-badge" style="display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 700; margin-bottom: 6px; background-color: var(--orange-light); color: var(--orange);">CSV FORMAT</div>
+          <p style="font-size: 0.85rem; color: var(--text-muted); margin: 0;" id="export-records-count">Total: 0 records found</p>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+          <!-- Action 1: Web Share (Native Share Sheet) -->
+          <button class="btn btn-primary" id="btn-export-share" style="display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 600; padding: 12px; font-family: inherit;">
+            <span>📤</span> Share File (LINE / AirDrop / Files)
+          </button>
+          
+          <!-- Action 2: Browser Download -->
+          <button class="btn btn-secondary" id="btn-export-download" style="display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 600; padding: 12px; font-family: inherit;">
+            <span>💾</span> Download Directly to Device
+          </button>
+          
+          <!-- Action 3: Copy to Clipboard -->
+          <button class="btn btn-secondary" id="btn-export-copy" style="display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 600; padding: 12px; border-color: var(--border); font-family: inherit;">
+            <span>📋</span> Copy to Clipboard (Paste in Excel)
+          </button>
+        </div>
+        
+        <div style="font-size: 0.75rem; color: var(--text-muted); line-height: 1.4; border-top: 1px solid var(--border); padding-top: 12px; margin-top: 4px;">
+          <strong>Tip for iOS / Bluefy users:</strong> If "Share File" or "Download" does not open, click <strong>"Copy to Clipboard"</strong> and paste the contents directly into Microsoft Excel or any spreadsheet app.
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Main JavaScript File -->
   <script src="app.js"></script>
 
