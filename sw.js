@@ -1,4 +1,4 @@
-const CACHE_NAME = 'torque-inspect-v3';
+const CACHE_NAME = 'torque-inspect-v4';
 const ASSETS = [
   './',
   './index.html',
