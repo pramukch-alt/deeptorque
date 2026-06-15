@@ -403,6 +403,14 @@ function filterTableOptions() {
     item.addEventListener('click', () => {
       searchInput.value = table.TableNumber;
       dropdownMenu.classList.remove('show');
+      
+      // Synchronous focus to trigger keyboard/jump on iOS/Bluefy
+      const measuredInput = document.getElementById('measured-torque');
+      if (measuredInput) {
+        measuredInput.disabled = false;
+        measuredInput.focus();
+      }
+      
       handleTableSelection(table.TableID);
     });
     dropdownMenu.appendChild(item);
@@ -456,6 +464,14 @@ async function handleTableSelection(tableId) {
 
   // Load the current Wrench specifications & position
   loadWrenchSizeBolts();
+
+  // Scroll to inspection measurement card
+  setTimeout(() => {
+    const card = document.getElementById('inspection-measurement-card');
+    if (card) {
+      card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, 100);
 }
 
 // Changes active Wrench size and reloads bolts
@@ -1516,6 +1532,12 @@ function setupEventListeners() {
   document.getElementById('btn-qr-scan').addEventListener('click', openQRScanner);
   document.getElementById('qr-scanner-close').addEventListener('click', closeQRScanner);
   document.getElementById('qr-simulated-scan-select').addEventListener('change', (e) => {
+    // Synchronous focus to trigger keyboard/jump on iOS/Bluefy
+    const measuredInput = document.getElementById('measured-torque');
+    if (measuredInput) {
+      measuredInput.disabled = false;
+      measuredInput.focus();
+    }
     handleQRScanResult(e.target.value);
   });
 
